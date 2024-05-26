@@ -83,3 +83,6 @@ connected up as pictured.
 booted up with button held. LED flashes every 2 seconds.
 
 able to communicate and query firmware version with code in \code\03
+
+Moved to keypress: VERSION:3.0-20170601
+
