@@ -31,3 +31,55 @@ PMK on Pico RGB Keypad
 
 See \code\01_rainbow for first working example with pi pico
 See \code\02_single_function_keys for first example of reacting to key press.
+
+## HC-05
+
+https://gist.github.com/idriszmy/479befe5c3fa475d785ccd9ef080b880
+
+```
+import board
+import busio
+
+hc05 = busio.UART(board.GP4, board.GP5, baudrate=38400)
+
+while True:
+    command = input() + "\r\n"
+    hc05.write(bytes(command, 'ascii'))
+    while True:
+        response = hc05.readline()
+        if response == None:
+            break
+        print(str(response, 'UTF-8'))
+
+![Wiring for HC-05](/readme_img/hc05.png)
+
+https://howtomechatronics.com/tutorials/arduino/how-to-configure-pair-two-hc-05-bluetooth-module-master-slave-commands/
+
+Reading this to try and understand the purpose of the enable pin and the button.
+
+```
+For this tutorial we need to configure both modules. In order to do that we need to switch to AT Command Mode and here’s how we will do that. First we need connect the Bluetooth module to the Arduino as the circuit schematics explained in the previous tutorials. What we need to do additionally is to connect the “EN” pin of the Bluetooth module to 5 volts and also switch the TX and RX pins at the Arduino Board
+
+So the RX pin of the Arduino needs to be connected to the RX pin of the Bluetooth module, through the voltage divider, and the TX pin of the Arduino to the TX pin of the Bluetooth module. Now while holding the small button over the “EN” pin we need to power the module and that’s how we will enter the command mode. If the Bluetooth module led is flashing every 2 seconds that means that we have successfully entered in the AT command mode.
+
+After this we need to upload an empty sketch to the Arduino but don’t forget to disconnect the RX and TX lines while uploading. Then we need to run the Serial Monitor and there select “Both NL and CR”, as well as, “38400 baud” rate which is the default baud rate of the Bluetooth module. Now we are ready to send commands and their format is as following.
+```
+
+Pin Connections
+- VCC: Connect to 3.3V (or 5V, but ensure logic levels are compatible with the Pico).
+- GND: Connect to GND.
+- TX: Connect to RX (GP1) on the Pico (with a voltage divider if needed for 5V logic).
+- RX: Connect to TX (GP0) on the Pico (with a voltage divider if needed for 5V logic).
+- EN: This pin is used to enter AT command mode. It should be pulled high to enter AT command mode.
+- State: This pin indicates the connection status (it can be left unconnected for basic setups).
+
+Arduino with HC-05 (ZS-040) Bluetooth module – AT MODE
+
+'AT\r\n' – simple feedback request. Will return “OK”
+'AT+VERSION\r\n' – returns the firmware version. “+VERSION:2.0-20100601
+
+connected up as pictured.
+
+booted up with button held. LED flashes every 2 seconds.
+
+able to communicate and query firmware version with code in \code\03
