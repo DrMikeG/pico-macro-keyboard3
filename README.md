@@ -86,3 +86,47 @@ able to communicate and query firmware version with code in \code\03
 
 Moved to keypress: VERSION:3.0-20170601
 
+## Trying something new
+
+Elechouse NFC module v3 PN523
+
+https://www.elechouse.com/elechouse/images/product/PN532%20NFC%20Module/
+
+Circuit python has a PN523 library:
+https://learn.adafruit.com/adafruit-pn532-rfid-nfc/python-circuitpython
+
+Or you could wire by hand:
+
+Arduino    PN532 Module
+GND <----------> GND
+5V <----------> VCC
+SDA <---------> SDA
+SCL <---------> SCL
+
+NXP PN532 User Manual
+NXP Mifare One S50 IC
+
+
+To check if a PN532 NFC board is connected to a Raspberry Pi Pico using CircuitPython and the I2C interface, you can use the adafruit_pn532 library
+Set up the I2C communication and check if the PN532 board is connected.
+
+Setup
+Install CircuitPython on your Raspberry Pi Pico if you haven't already.
+Install Required Libraries:
+adafruit_pn532
+adafruit_bus_device
+adafruit_register
+You can download these libraries from the Adafruit CircuitPython Library Bundle.
+
+Connections
+Connect the PN532 breakout board to the Raspberry Pi Pico as follows:
+
+PN532 SDA to Pico GP0
+PN532 SCL to Pico GP1
+PN532 VCC to Pico 3V3
+PN532 GND to Pico GND
+
+code.py output:
+Hello World!
+Found PN532 with firmware version: 1.6
+PN532 is connected and working!

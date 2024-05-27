@@ -48,6 +48,14 @@ def handle_key_00():
     else:
         print("No response or failed to read response")
 
+    print("State?")
+    response = send_command("AT+STATE")
+    if response:
+        print("Response:", response)
+    else:
+        print("No response or failed to read response")
+
+
 def handle_key_01():
     print("Checking module address")
     response = send_command("AT+ADDR")
@@ -119,6 +127,16 @@ def handle_key_06():
 
 def handle_key_07():
     
+    print("Requesting Master")
+    response = send_command("AT+ROLE=1")
+    if response:
+        print("Response:", response)
+
+    print("Requesting RESET")
+    response = send_command("AT+RESET")
+    if response:
+        print("Response:", response)
+
     print("Mode")
     response = send_command("AT+CMODE")
     if response:
@@ -179,6 +197,47 @@ def handle_key_07():
     else:
         print("No response or failed to read response")
 
+def handle_key_08():
+
+    #print("Requesting Master")
+    #response = send_command("AT+ROLE=1")
+    #if response:
+    #    print("Response:", response)
+
+    print("Requesting RESET")
+    response = send_command("AT+RESET")
+    if response:
+        print("Response:", response)
+
+    print("Mode 0")
+    response = send_command("AT+CMODE=0")
+    if response:
+        print("Response:", response)
+    else:
+        print("No response or failed to read response")
+    
+    response = send_command("AT+CMODE=0")
+    if response:
+        print("Response:", response)
+    else:
+        print("No response or failed to read response")
+
+    #When we enter the address we need to replace the colons with commas. 
+    #The format is AT+RNAME?A854,B2,3FB035 and AT+RNAME?3014,10,171179
+    #remote_device_address = '24:95:2F:54:87:42'
+    #remote_device_address = '24,95,2F,54,87,42,9'
+    remote_device_address = '0C,EC,80,DD,E5,A4'
+    
+    response = send_command("AT+RNAME?"+remote_device_address)
+    print("Response:", response)
+    # Check if the response contains the device name
+    if response.startswith('OK'):
+        # Extract the device name from the response
+        device_name = response.split(':')[2].strip()
+        print("Remote device name:", device_name)
+    else:
+        print("Failed to retrieve remote device name")
+
 for key in keys:
     @keybow.on_press(key)
     def press_handler(key):
@@ -201,6 +260,8 @@ for key in keys:
             handle_key_06()
         elif key.number == 7:
             handle_key_07()
+        elif key.number == 8:
+            handle_key_08()
 
     @keybow.on_release(key)
     def release_handler(key):
