@@ -86,6 +86,9 @@ able to communicate and query firmware version with code in \code\03
 
 Moved to keypress: VERSION:3.0-20170601
 
+https://www.martyncurrey.com/tag/hc-05/
+
+
 ## Trying something new
 
 Elechouse NFC module v3 PN523
