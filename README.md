@@ -40,7 +40,7 @@ https://gist.github.com/idriszmy/479befe5c3fa475d785ccd9ef080b880
 import board
 import busio
 
-hc05 = busio.UART(board.GP4, board.GP5, baudrate=38400)
+hc05 = busio.UART(board.GP4, board.GP5, baudrate=38400) 
 
 while True:
     command = input() + "\r\n"
@@ -87,6 +87,11 @@ able to communicate and query firmware version with code in \code\03
 Moved to keypress: VERSION:3.0-20170601
 
 https://www.martyncurrey.com/tag/hc-05/
+
+Since writing the below many more modules have been released using the zs-040 breakout boards. Some of the newer ones include modules with a version 3.0-20170601 firmware that work in a slightly different way.
+
+
+
 
 
 ## Trying something new
