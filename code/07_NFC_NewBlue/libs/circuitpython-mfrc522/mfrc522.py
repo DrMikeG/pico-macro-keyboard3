@@ -59,6 +59,11 @@ class MFRC522:
 
 		return val[0]
 
+	def get_version(self):
+        # The VersionReg register address is typically 0x37 for RC522
+		version_reg = 0x37
+		return self._rreg(version_reg)
+
 	def _sflags(self, reg: int, mask: int):
 		self._wreg(reg, self._rreg(reg) | mask)
 

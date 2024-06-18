@@ -34,10 +34,21 @@ def do_read():
     #def __init__(self, sck: Pin, mosi: Pin, miso: Pin, rst: Pin, cs: Pin):
 	rdr = mfrc522.MFRC522(sck, mosi, miso, rst, cs)
 	#rdr.set_antenna_gain(0x07 << 4)
+   	# Query the version
+	version = rdr.get_version()
+	print(f"RC522 Version: {hex(version)}")
 
 	print('')
 	print("Place card before reader to read from address 0x08")
 	
+    # Check for card and read UID
+	while True:
+		if rdr.is_card():
+			uid = rdr.read_card_serial()
+			if uid:
+				print(f"Card detected! UID: {[hex(x) for x in uid]}")
+		time.sleep(1)
+    
 	try:
 		while True:
 			(stat, tag_type) = rdr.request(rdr.REQIDL)
