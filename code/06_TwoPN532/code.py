@@ -4,66 +4,60 @@ import busio
 from digitalio import DigitalInOut
 from adafruit_pn532.i2c import PN532_I2C
 
-# I2C setup
-i2c = busio.I2C(board.GP5, board.GP4)
+# Initialize the first I2C bus on GP0 (SDA) and GP1 (SCL)
+i2c1 = busio.I2C(scl=board.GP1, sda=board.GP0)
 
-while not i2c.try_lock():
+# Initialize the second I2C bus on GP2 (SDA) and GP3 (SCL)
+i2c2 = busio.I2C(scl=board.GP3, sda=board.GP2)
+
+# Wait for the I2C buses to be ready
+while not i2c1.try_lock():
+    pass
+while not i2c2.try_lock():
     pass
 
 try:
-    # Scan for devices on the I2C bus
-    devices = i2c.scan()
-    if devices:
-        print("I2C device addresses found:")
-        for device in devices:
-            print(hex(device))
-    else:
-        print("No I2C devices found.")
+    # Scan for devices on the first I2C bus
+    devices1 = i2c1.scan()
+    print("I2C addresses on bus 1:", [hex(device) for device in devices1])
+
+    # Scan for devices on the second I2C bus
+    devices2 = i2c2.scan()
+    print("I2C addresses on bus 2:", [hex(device) for device in devices2])
 finally:
-    # Release the I2C bus
-    i2c.unlock()
+    # Release the I2C buses
+    i2c1.unlock()
+    i2c2.unlock()
 
-# With I2C, we recommend connecting RSTPD_N (reset) to a digital pin for manual
-# harware reset
-pn532 = PN532_I2C(i2c, address=0x24, debug=False)
 
-# Check if the PN532 is connected
-def check_pn532():
-    try:
-        ic, ver, rev, support = pn532.firmware_version
-        print(f"Found PN532 with firmware version: {ver}.{rev}")
-        return True
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
 
-# Check the PN532 connection
-if check_pn532():
-    print("PN532 is connected and working!")
-else:
-    print("PN532 not found. Please check connections.")
+# Initialize the first PN532 with the default address (0x24)
+pn532_1 = PN532_I2C(i2c1, address=0x24, debug=False)
 
-# Configure the PN532 to communicate with MiFare cards
-pn532.SAM_configuration()
+# Initialize the second PN532 with the modified address (0x25)
+pn532_2 = PN532_I2C(i2c2, address=0x24, debug=False)
 
-print("Waiting for an NFC card...")
+# Configure PN532s to communicate with MiFare cards
+pn532_1.SAM_configuration()
+pn532_2.SAM_configuration()
 
-# Specific card UID to be recognized
-specific_card_uid = [0x79, 0x1c, 0x50, 0xd3]
+print("Waiting for NFC tags...")
 n_read = 0
 while True:
-    # Check if a card is available to read
-    uid = pn532.read_passive_target()
-
-    # Try to read a tag
-    if uid is not None:
+    # Check for a card on the first PN532 (with a short timeout)
+    uid_1 = pn532_1.read_passive_target(timeout=0.1)
+    if uid_1 is not None:
         # Found a card
-        print("{} Found card with UID:{}".format(n_read,[hex(i) for i in uid]))
+        print("{} Reader 1 Found card with UID:{}".format(n_read,[hex(i) for i in uid_1]))
         n_read = n_read + 1
-        # Check if the UID starts with 0x8 or matches the specific card UID
-        if uid[0] == 0x8 or uid == specific_card_uid:
-            print("Recognized device with UID:", [hex(i) for i in uid])
-        else:
-            print("Unknown UID detected.")
+        
 
-    time.sleep(1)
+    # Check for a card on the second PN532 (with a short timeout)
+    uid_2 = pn532_2.read_passive_target(timeout=0.1)
+    if uid_2 is not None:
+        # Found a card
+        print("{} Reader 2 Found card with UID:{}".format(n_read,[hex(i) for i in uid_2]))
+        n_read = n_read + 1    
+        
+    # Add a short delay to prevent excessive CPU usage
+    time.sleep(0.1)
