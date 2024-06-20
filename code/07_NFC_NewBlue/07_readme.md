@@ -81,6 +81,13 @@ TX - GP19
 
 ![Wiring for HC-05](/readme_img/wired_rc522d.png)
 
-
-
 Had to flash adafruit-circuitpython-raspberry_pi_pico-en_US-9.0.5.uf2 onto the next pi pico.
+
+    sck = board.GP18
+    mosi = board.GP19
+    miso = board.GP16
+    rst = board.GP22
+    cs = board.GP17
+
+
+![Wiring for HC-05](/readme_img/pico.png)
