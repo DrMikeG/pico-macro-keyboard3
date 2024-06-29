@@ -29,3 +29,25 @@ The big blue board is connected to GP1+0 and needs pullups from 3v3.
 The v3 red board is connected to GP3+2 and does not need pullups.
 
 I did get a single read from a ring (smallest of 3 currently delivered) from the red board.
+
+
+
+The key discovery today was that my phone is writing tags using:
+ key_number=adafruit_pn532.adafruit_pn532.MIFARE_CMD_AUTH_B
+ Which is not the default used by the examples.
+
+ Once I discoevered this, I can authenticate and then dump the blocks on my writen cards and fobs.
+
+ Using  key_number=adafruit_pn532.adafruit_pn532.MIFARE_CMD_AUTH_A I could only read the blank 'from the factory' cards.
+
+ However, the rings (apart from the large cermaic) don't use mifare classic, they use mifare ultralight, which I don't think isn't yet supported in the adafruit library.
+
+ It's only 137 bytes though, so I might stand a chance at writing my own parser if I can dump the bytes.
+ I think these pages: https://learn.adafruit.com/adafruit-pn532-rfid-nfc/mifare probably have information on the commands I would need to send to the rings to read the chips.
+
+ It's nothing secret, my phone can do it.
+ https://learn.adafruit.com/adafruit-pn532-rfid-nfc/mifare#mifare-ultralight-cards-99493
+
+ The data is writen into NDEF records: https://learn.adafruit.com/adafruit-pn532-rfid-nfc/ndef
+
+ I'm going to switch back to trying to smaller blue reader with the mfrc522 library to see if I can get authentication working with that, now I've done it using adafruit.

@@ -121,7 +121,6 @@ class MFRC522:
 
         # If the loop didn't timeout, check for errors
         if i:
-            print("No timeout")
             # Read the ErrorReg register
             # if the register is 0x1B, then there are no buffer overflow, parity or CRC errors
             if (self._rreg(0x06) & 0x1B) == 0x00:
@@ -157,7 +156,6 @@ class MFRC522:
                 stat = self.ERR
         else:
             # The loop timed out
-            print("Timeout")
             stat = self.ERR
         
         # return the status, the received data and the number of bits
@@ -434,7 +432,7 @@ class MFRC522:
         :param uid: 4 bytes card UID.
         :return: True if authentication is successful, False otherwise.
         """
-        print(f"Authenticating: mode: {mode}, block_addr: {block_addr}, sector_key: {sector_key}, uid: {uid}")
+        #print(f"Authenticating: mode: {mode}, block_addr: {block_addr}, sector_key: {sector_key}, uid: {uid}")
 
         auth_data = [mode, block_addr] + sector_key + uid[:4]
         status = self._tocard(0x0E, auth_data)

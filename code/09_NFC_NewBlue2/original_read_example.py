@@ -21,55 +21,20 @@ def do_read():
                 (stat, raw_uid) = rdr.anticoll()
 
                 if stat == rdr.OK:
-                    print("New card detected")
                     print("  - tag type: 0x%02x" % tag_type)
                     print("  - uid     : 0x%02x%02x%02x%02x" % (raw_uid[0], raw_uid[1], raw_uid[2], raw_uid[3]))
-                    print("")
 
-                #▪▪ DATA ▪▪
-                #▪ FORMAT ▪▪
-                #NFC Well Known (0x01)
-                #Defined by RFC 2141, RFC 3986
-                #▪▪ TYPE ▪▪
-                #T
-                #▪▪ PAYLOAD (7 bytes) ▪▪
-                
+                if rdr.select_tag(raw_uid) == rdr.OK:
 
-                # Iterate through all the blocks except for sector trailers
-                for block in range(1, 64):  # Adjust the range as necessary
-                    # Skip sector trailers (typically every 4th block starting from 0)
-                    if block % 4 == 3:
-                        continue
-                    try:
-                        data = rdr.read_text_record(block)
+                    key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+                    block = 0
+                    if rdr.auth(rdr.AUTHENT1B, block, key, raw_uid) == rdr.OK:
+                        data = rdr.read(block)
                         if data:
                             print(f"Block {block} data: {data}")
-                    except Exception as e:
-                        print(f"Error reading block {block}: {e}")
-
-                # I know there is data writen on the card
-                # let's read it
-                # The steps in reading the text data are:
-                # 1. Select the tag
-                # 2. Authenticate the tag
-                # 3. Read the data
-                # 4. Print the data
-
-                # In systems where tags might have different levels of access or permissions, selecting a tag can be the first step
-                # in the process of authenticating and determining the level of access or operations permitted with that tag.
-                # Assuming the rest of your code remains the same
-                if rdr.select_tag(raw_uid) == rdr.OK:
-                    key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
-                    # Start from block 4, the first block of sector 1
-                    for block in range(4, 64, 4):  # Adjust the range as necessary
-                        if rdr.auth(rdr.AUTHENT1A, block, key, raw_uid) == rdr.OK:
-                            data = rdr.read_text_record(block)
-                            if data:
-                                print(f"Block {block} data: {data}")
-                                break  # Exit the loop if data is found
-                            rdr.stop_crypto1()
-                        else:
-                            print(f"Authentication error for block {block}")
+                        rdr.stop_crypto1()
+                    else:
+                        print(f"Authentication error for block {block}")
 
     except KeyboardInterrupt:
         print("Bye")

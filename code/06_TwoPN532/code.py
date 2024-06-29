@@ -36,7 +36,7 @@ def dump_blocks(pn532, uid):
     # Now we try to go through all 16 sectors (each having 4 blocks)
     for i in range(64):
         try:
-            authenticated = pn532.mifare_classic_authenticate_block(uid, block_number=i, key_number=adafruit_pn532.adafruit_pn532.MIFARE_CMD_AUTH_A, key=key_a)
+            authenticated = pn532.mifare_classic_authenticate_block(uid, block_number=i, key_number=adafruit_pn532.adafruit_pn532.MIFARE_CMD_AUTH_B, key=key_a)
             if not authenticated:
                 print("Failed to authenticate block", i)
                 continue
@@ -119,24 +119,8 @@ while True:
         print("{} Reader 1 Found card with UID:{}".format(n_read,[hex(i) for i in uid_1]))
         n_read = n_read + 1
 
-        keys_to_try = [
-            b'\xFF\xFF\xFF\xFF\xFF\xFF',
-            b'\xA0\xA1\xA2\xA3\xA4\xA5',
-            b'\xD3\xF7\xD3\xF7\xD3\xF7',
-            b'\x00\x00\x00\x00\x00\x00',
-            b'\xB0\xB1\xB2\xB3\xB4\xB5',
-            b'\x4D\x3A\x99\xC3\x51\xDD',
-            b'\x1A\x98\x2C\x7E\x45\x9A',
-            b'\xAA\xBB\xCC\xDD\xEE\xFF'
-        ]
-        # Try different keys to read the first block
-        for key in keys_to_try:
-            print("Trying to read block 0 with key:", ' '.join(['%02X' % x for x in key]))
-            block_data = read_block(pn532_1, block_number, key, uid_1)
-            if block_data is not None:
-                break
         #read_block(pn532_1,4,key,uid_1)
-        #dump_blocks(pn532_1, uid_1)
+        dump_blocks(pn532_1, uid_1)
         break
 
     # Check for a card on the second PN532 (with a short timeout)
