@@ -1,5 +1,4 @@
 import mfrc522
-from ndef_parser import parse_uid
 import board
 
 from os import uname
@@ -44,14 +43,26 @@ def do_read():
                     elif (tag_type == rdr.MIFARE_ULTRALIGHT):
                         print("\nRing (MIFARE Ultralight detected)")
                         # print out the 4 byte UID of the card in the format
-                        print("Serial Number=({:02x}:{:02x}:{:02x}:{:02x})".format(raw_uid[0], raw_uid[1], raw_uid[2], raw_uid[3]))
-                        
+                        print("UDI=({:02x}:{:02x}:{:02x}:{:02x})".format(raw_uid[0], raw_uid[1], raw_uid[2], raw_uid[3]))
+
                         if rdr.select_tag(raw_uid) == rdr.OK:
-                            #Pages 0x04 to 0x0F are the user read/write area.
+
+                            page_0 = rdr.read_page(0x00) # returns 16 bytes
+                            print("Page 0x00 data: %s" % page_0)
+                            
+                            if len(page_0) > 7:
+                                # byte 0,1,2 are serial number
+                                # byte 3 is check byte 0
+                                # byte 4,5,6,7 are serial number
+                                # byte 8 is check byte 1
+                                # byte 9 is internal
+                                print("Serial Number=({:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x})".format(page_0[0],page_0[1],page_0[2],page_0[4],page_0[5],page_0[6],page_0[7]))
+                                #Pages 0x04 to 0x0F are the user read/write area.
+                            
                             pages_to_read = [0x04, 0x08, 0x0C]
                             for page_num in pages_to_read:
-                                data = rdr.read(page_num)
-                                if data:
+                                data = rdr.read_page(page_num)
+                                if data is not None:
                                     print(f"Page 0x{page_num:02x} data: {data}")
 
                     else:

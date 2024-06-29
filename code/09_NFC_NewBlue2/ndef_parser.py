@@ -58,9 +58,7 @@ def parse_byte_into_record_header(byte):
     mb = (flags & 0x10) > 0  # MB flag
     return {"tnf": tnf, "il": il, "sr": sr, "me": me, "cf": cf, "mb": mb}
 
-def extract_payload(byte_array):
-    header = parse_byte_into_record_header(byte_array[0])
-    # Calculate the start index of the Type Length field, which is right after the header
+def parse_header_fields(header,byte_array):
     index = 1
     type_length = byte_array[index]
     index += 1
@@ -82,82 +80,15 @@ def extract_payload(byte_array):
 
     # Skip the Type and ID fields to reach the payload
     index += type_length + id_length
+    return index, payload_length
+
+def extract_payload(byte_array):
+    
+    header = parse_byte_into_record_header(byte_array[0])
+
+    # Calculate the start index of the Type Length field, which is right after the header
+    index, payload_length = parse_header_fields(header,byte_array)
 
     # Extract the payload
     payload = byte_array[index:index+payload_length]
     return payload
-
-# Example usage
-bytes_data = [0xD1, 0x01, 0x07, 0x54, 0x02, 0x65, 0x6E, 0x48, 0x65, 0x6C, 0x6C, 0x6F]  # An example NDEF record
-payload = extract_payload(bytes_data)
-print("Payload:", payload)
-# Example usage with your test data
-bytes_data = [1, 3, 160, 12, 52, 3, 11, 209, 1, 7, 84, 2, 101, 110, 109, 105, 107, 101, 254, 0, 254]
-find_ndef_record(bytes_data)
-
-def parse_byte_array_into_records(byte_array):
-    """
-    Parse the byte array into NDEF records.
-
-    :param byte_array: The byte array to parse.
-    :return: A list of NDEF records.
-    """
-    header = parse_byte_into_record_header(byte_array[0])
-    
-    return None
-
-def parse_byte_into_record_header(byte):
-    # byte 0 is the record header
-    # we need to use bit manipulation to extract the values of the flags
-    # starting with the least significant bit 
-    
-    # prints the bits of byte 0 in byte_array
-    for i in range(8):
-        print(byte & (1 << i), end=" ")
-    print("\n")
-
-    # TNF: Type Name Format Field is bits 0,1 & 2
-    tnf = byte & 0x07
-    print(f"TNF: {tnf}")
-
-    # IL: ID LENGTH Field is bit 3
-    id_length_present = byte & 0x08
-    print(f"ID Length Present: {id_length_present}")
-
-    # SR: Short Record Bit is bit 4
-    short_record = byte & 0x10
-    print(f"Short Record: {short_record}")
-
-    # CF: Chunk Flag is bit 5
-    chunk_flag = byte & 0x20
-    print(f"Chunk Flag: {chunk_flag}")
-
-    # ME: Message End is bit 6
-    message_end = byte & 0x40
-    print(f"Message End: {message_end}")
-
-    # MB: Message Begin is bit 7
-    message_begin = byte & 0x80
-    print(f"Message Begin: {message_begin}")
-
-    # Parse the rest of the byte array
-    # assign values to names members of the record
-    record_header = {
-        "tnf": tnf,
-        "id_length_present": id_length_present,
-        "short_record": short_record,
-        "chunk_flag": chunk_flag,
-        "message_end": message_end,
-        "message_begin": message_begin
-    }
-    return record_header
-
-
-def parse_uid(uid):
-    """
-    Parse the UID bytes and return a string representation.
-
-    :param uid: The UID bytes.
-    :return: The string representation of the UID.
-    """
-    return ":".join([hex(byte)[2:].zfill(2) for byte in uid])
