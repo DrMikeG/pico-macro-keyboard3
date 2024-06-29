@@ -3,6 +3,7 @@ import busio
 import digitalio
 from os import uname
 
+# Moved out of \lib folder to allow autocomplete
 
 class MFRC522:
 
@@ -12,7 +13,9 @@ class MFRC522:
 
     REQIDL = 0x26
     REQALL = 0x52
+    # AUTHENT1A = 0x60 which is the command for MIFARE Authenticate with key A
     AUTHENT1A = 0x60
+    # Authent1B = 0x61 which is the command for MIFARE Authenticate with key B
     AUTHENT1B = 0x61
 
     def __init__(self, sck, mosi, miso, cs, rst):
@@ -32,6 +35,8 @@ class MFRC522:
             while not self.spi.try_lock():
                 pass
             self.spi.configure(baudrate=100000, phase=0, polarity=0)
+            # Added by Mike
+            print("Recongnized RP2040 and confingured SPI")
         else:
             raise RuntimeError("Unsupported platform")
 
@@ -40,14 +45,14 @@ class MFRC522:
         self.init()
 
     def _wreg(self, reg, val):
-
+        # Write a byte to the register
         self.cs.value = False
         self.spi.write(b'%c' % int(0xff & ((reg << 1) & 0x7e)))
         self.spi.write(b'%c' % int(0xff & val))
         self.cs.value = True
 
     def _rreg(self, reg):
-
+        # Read a byte from the register
         self.cs.value = False
         self.spi.write(b'%c' % int(0xff & (((reg << 1) & 0x7e) | 0x80)))
         val = bytearray(1)
@@ -57,54 +62,83 @@ class MFRC522:
         return val[0]
 
     def _sflags(self, reg, mask):
+        # Adds mask to value already in register
         self._wreg(reg, self._rreg(reg) | mask)
 
     def _cflags(self, reg, mask):
+        # _cflags is different from _sflags in that it clears the bits in the register
         self._wreg(reg, self._rreg(reg) & (~mask))
 
     def _tocard(self, cmd, send):
-
+        # Sends a command to the tag. The final 4 bits of command is the CRC. The data sent to the tag is the data in the send list.
         recv = []
         bits = irq_en = wait_irq = n = 0
         stat = self.ERR
 
+        # cmd = 0x0C is the command for MIFARE Read
+        # cmd = 0x0E is the command for MIFARE Write
         if cmd == 0x0E:
             irq_en = 0x12
             wait_irq = 0x10
         elif cmd == 0x0C:
             irq_en = 0x77
             wait_irq = 0x30
-
+        else:
+            print("Unknown command")
+            return self.ERR, recv, bits
+            
+        # Enable the interrupts
         self._wreg(0x02, irq_en | 0x80)
+        # Clear the interrupt request bits
         self._cflags(0x04, 0x80)
+        # Flush the FIFO buffer
         self._sflags(0x0A, 0x80)
+        # Send 0x00 to the CommandReg to put the MFRC522 in idle mode
         self._wreg(0x01, 0x00)
 
+        # Send the data to the FIFO buffer
         for c in send:
             self._wreg(0x09, c)
+        # Send the command to the tag
         self._wreg(0x01, cmd)
 
+        # Set 0x80 in the BitFramingReg register
         if cmd == 0x0C:
             self._sflags(0x0D, 0x80)
 
+        # 2000 is the timeout
         i = 2000
         while True:
+            # Read the ComIrqReg register
             n = self._rreg(0x04)
             i -= 1
+            # if the ComIrqReg register is 0x01 and the wait_irq is 0, then break
             if ~((i != 0) and ~(n & 0x01) and ~(n & wait_irq)):
                 break
 
+        # Clear 0x80 from the BitFramingReg register
         self._cflags(0x0D, 0x80)
 
+        # If the loop didn't timeout, check for errors
         if i:
+            print("No timeout")
+            # Read the ErrorReg register
+            # if the register is 0x1B, then there are no buffer overflow, parity or CRC errors
             if (self._rreg(0x06) & 0x1B) == 0x00:
+                # Set the status to OK
                 stat = self.OK
 
+                # Check if there is a card
                 if n & irq_en & 0x01:
+                    # If there is no card, set the status to NOTAGERR
+                    print("No card")
                     stat = self.NOTAGERR
                 elif cmd == 0x0C:
+                    # If the command is 0x0C, then read the number of bytes in the FIFO buffer
                     n = self._rreg(0x0A)
+                    # Read the number of bits in the last byte
                     lbits = self._rreg(0x0C) & 0x07
+                    # Calculate the number of bits
                     if lbits != 0:
                         bits = (n - 1) * 8 + lbits
                     else:
@@ -114,31 +148,46 @@ class MFRC522:
                         n = 1
                     elif n > 16:
                         n = 16
-
+                    # Read n byte from the FIFO buffer
                     for _ in range(n):
                         recv.append(self._rreg(0x09))
             else:
+                # There was an error executing the command
+                print("Error in _tocard")
                 stat = self.ERR
-
+        else:
+            # The loop timed out
+            print("Timeout")
+            stat = self.ERR
+        
+        # return the status, the received data and the number of bits
         return stat, recv, bits
 
     def _crc(self, data):
+        # Use the CRC coprocessor to calculate the CRC of the data
 
+        # Clear the FIFO buffer and Set the CRCIrqReg register
         self._cflags(0x05, 0x04)
         self._sflags(0x0A, 0x80)
 
         for c in data:
+            # Write the data to the FIFO buffer
+            # 0x09 is the FIFODataReg register
             self._wreg(0x09, c)
 
+        # Execute the command (0x03 is the command for MIFARE CRC) and wait for the result
         self._wreg(0x01, 0x03)
 
-        i = 0xFF
+        i = 0xFF        
         while True:
+            # Read from 0x05 (CRCResultRegM) into n
             n = self._rreg(0x05)
             i -= 1
+            
             if not ((i != 0) and not (n & 0x04)):
                 break
 
+        # Return CRC calculated from
         return [self._rreg(0x22), self._rreg(0x21)]
 
     def init(self):
@@ -149,7 +198,9 @@ class MFRC522:
         self._wreg(0x2C, 0)
         self._wreg(0x15, 0x40)
         self._wreg(0x11, 0x3D)
-        # Initialize and set the antenna gain to the maximum value (48 dB)
+
+        # Not in original library
+        # Increase antenna gain from default (18db) to the maximum value (48 dB)
         current_gain = self._rreg(0x26) & 0x07
         gain_dict = {
             0x00: 18,
@@ -216,9 +267,27 @@ class MFRC522:
         return self.OK if (stat == self.OK) and (bits == 0x18) else self.ERR
 
     def auth(self, mode, addr, sect, ser):
-        return self._tocard(0x0E, [mode, addr] + sect + ser[:4])[0]
+       # Ensure mode is correctly set for AUTHENT1A (0x60) or AUTHENT1B (0x61)
+        # Assuming mode is passed correctly as 0x60 or 0x61
+        # addr is the address of the block
+        # sect is the sector key for authentication
+        # ser is the UID of the card, of which only the first 4 bytes are used
+
+        # Assemble the command
+        cmd = [mode, addr] + sect + ser[:4]
+
+        # Debug: Print the command to verify its structure
+        print(f"Command sent for authentication: {cmd}")
+
+        # Send the command to the card
+        status = self._tocard(0x0E, cmd)[0]  # Note: Ensure 0x0E is the correct command for your card's authentication
+        print(f"Authentication status: {status}")
+        return status
 
     def stop_crypto1(self):
+        # It is used to stop the encryption which is started by the auth method
+        # Stopping the encryption is necessary because the card will not respond to any commands
+        # if the encryption is not stopped
         self._cflags(0x08, 0x08)
 
     def read(self, addr):
@@ -247,6 +316,9 @@ class MFRC522:
 
         return stat
     
+    # End of origina library functions
+    # These are new functions I have tried to use
+
     def _set_bit_mask(self, reg, mask):
         current = self._rreg(reg)
         self._wreg(reg, current | mask)
@@ -321,7 +393,6 @@ class MFRC522:
 
         return (status, recv_data, bits)
 
-
     def _request(self, mode):
         self._wreg(0x0D, 0x07)  # BitFramingReg
         (status, back_data, back_bits) = self._to_card(0x0C, [mode])  # Transceive command
@@ -345,9 +416,9 @@ class MFRC522:
         :param block_addr: Address of the block to read.
         :return: A list of 16 bytes read from the block.
         """
-        self._set_bit_mask(0x0D, 0x80)  # StartSend=1, transmission of data starts
+        self._sflags(0x0D, 0x80)  # StartSend=1, transmission of data starts
         recv_data = [0x30, block_addr]  # 0x30 is the MIFARE Read command
-        (status, back_data, back_len) = self._to_card(0x0C, recv_data)
+        (status, back_data, back_len) = self._tocard(0x0C, recv_data)
         if status == 1 and len(back_data) == 16:
             return back_data
         else:
@@ -363,8 +434,10 @@ class MFRC522:
         :param uid: 4 bytes card UID.
         :return: True if authentication is successful, False otherwise.
         """
+        print(f"Authenticating: mode: {mode}, block_addr: {block_addr}, sector_key: {sector_key}, uid: {uid}")
+
         auth_data = [mode, block_addr] + sector_key + uid[:4]
-        (status, back_data, back_len) = self._to_card(0x0E, auth_data)
+        status = self._tocard(0x0E, auth_data)
         if status != 1:
             print(f"Authentication failed for block {block_addr}. Status: {status}")
             return False
