@@ -18,6 +18,9 @@ class MFRC522:
     # Authent1B = 0x61 which is the command for MIFARE Authenticate with key B
     AUTHENT1B = 0x61
 
+    MIFARE_CLASSIC = 0x04
+    MIFARE_ULTRALIGHT = 0x44
+
     def __init__(self, sck, mosi, miso, cs, rst):
 
         self.cs = digitalio.DigitalInOut(cs)
@@ -70,7 +73,23 @@ class MFRC522:
         self._wreg(reg, self._rreg(reg) & (~mask))
 
     def _tocard(self, cmd, send):
-        # Sends a command to the tag. The final 4 bits of command is the CRC. The data sent to the tag is the data in the send list.
+        """
+        Sends a command to the tag and receives the response.
+
+        Args:
+            cmd (int): The command to send to the tag.
+            send (list): The data to send to the tag.
+
+        Returns:
+            tuple: A tuple containing the status, received data, and number of bits.
+                - status (int): The status of the command execution.
+                - recv (list): The received data from the tag.
+                - bits (int): The number of bits received.
+
+        Raises:
+            None
+
+        """
         recv = []
         bits = irq_en = wait_irq = n = 0
         stat = self.ERR
@@ -102,7 +121,7 @@ class MFRC522:
         # Send the command to the tag
         self._wreg(0x01, cmd)
 
-        # Set 0x80 in the BitFramingReg register
+        # If reading then set the BitFramingReg register (0x0D) to 0x80 which means StartSend=1
         if cmd == 0x0C:
             self._sflags(0x0D, 0x80)
 
@@ -133,16 +152,25 @@ class MFRC522:
                     print("No card")
                     stat = self.NOTAGERR
                 elif cmd == 0x0C:
+                    
                     # If the command is 0x0C, then read the number of bytes in the FIFO buffer
+
+                    # 0x0A is the FIFOLevelReg register which tells us the number of bytes stored in the FIFO buffer
                     n = self._rreg(0x0A)
-                    # Read the number of bits in the last byte
+
+                    # The last byte will be padded if the number of bits is not a multiple of 8
+                    # reading 0x0C will give us the number of bits in the last byte
+                    # &0x07 because we only want the last 3 bits (0-7)                    
                     lbits = self._rreg(0x0C) & 0x07
-                    # Calculate the number of bits
+                    
+                    # How many valid bits in final byte?
+                    # Add to number of whole bytes (-last) * 8 bits
                     if lbits != 0:
                         bits = (n - 1) * 8 + lbits
                     else:
                         bits = n * 8
-
+                    
+                    # Read between 1 and 16 bytes from the buffer
                     if n == 0:
                         n = 1
                     elif n > 16:
@@ -159,6 +187,9 @@ class MFRC522:
             stat = self.ERR
         
         # return the status, the received data and the number of bits
+        # assert the number of bits is a multiple of 8
+        assert bits % 8 == 0
+
         return stat, recv, bits
 
     def _crc(self, data):
@@ -229,23 +260,47 @@ class MFRC522:
             self._cflags(0x14, 0x03)
 
     def request(self, mode):
+        """
+        Sends a request to the MFRC522 to detect nearby cards.
+
+        Args:
+            mode: The request mode to send.
+
+        Returns:
+            A tuple containing the status and bits received from the card.
+
+        Raises:
+            None.
+        """
 
         self._wreg(0x0D, 0x07)
+        
         (stat, recv, bits) = self._tocard(0x0C, [mode])
 
         if (stat != self.OK) | (bits != 0x10):
             stat = self.ERR
+        else:
+            print(f"Request status: {stat}, recv: {recv}, bytes: {bits // 8} bits: {bits}")
 
-        return stat, bits
+        return stat, recv[0] if recv else None
 
+    
     def anticoll(self):
+        """
+        Executes the anticollision procedure for the MFRC522 RFID reader.
 
+        Returns:
+            tuple: A tuple containing the status and received data.
+                - The status indicates the result of the anticollision procedure.
+                - The received data is a list of bytes received during the procedure.
+        """
         ser_chk = 0
+        # This is the command for the anticollision procedure
         ser = [0x93, 0x20]
 
         self._wreg(0x0D, 0x00)
         (stat, recv, bits) = self._tocard(0x0C, ser)
-
+        print(f"Anticoll status: {stat}, recv: {recv}, bytes: {bits // 8} bits: {bits}")
         if stat == self.OK:
             if len(recv) == 5:
                 for i in range(4):
@@ -294,6 +349,25 @@ class MFRC522:
         data += self._crc(data)
         (stat, recv, _) = self._tocard(0x0C, data)
         return recv if stat == self.OK else None
+
+    def read_page(self, page_addr):
+        """
+        Read a single page of data from the card.
+        :param page_addr: Address of the page to read.
+        
+        """
+        data = [0x30, page_addr]
+        data += self._crc(data)
+        (status, back_data, back_len) = self._tocard(0x0C, data)   
+        print(f"Read page status: {status}, back_data: {back_data}, back_len: {back_len}")
+
+        # Read command on ultralight returns 16 bytes (4 pages)
+        if status == self.OK and len(back_data) == 16:
+            return back_data
+        else:
+            print(f"Failed to read page {page_addr}. Status: {status}")
+            return None
+
 
     def write(self, addr, data):
 
