@@ -33,8 +33,12 @@ def dump_blocks(pn532, uid):
     # Now we try to go through all 16 sectors (each having 4 blocks)
     for i in range(64):
         try:
-            pn532.mifare_classic_authenticate_block(uid, block_number=i, key_number=adafruit_pn532.adafruit_pn532.MIFARE_CMD_AUTH_A, key=key_a)
+            authenticated = pn532.mifare_classic_authenticate_block(uid, block_number=i, key_number=adafruit_pn532.adafruit_pn532.MIFARE_CMD_AUTH_A, key=key_a)
+            if not authenticated:
+                print("Failed to authenticate block", i)
+                continue
             print("Authenticated block", i)
+
             block_data = pn532.mifare_classic_read_block(i)
             if block_data is None:
                 print("Failed to read block", i)
