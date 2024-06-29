@@ -25,6 +25,8 @@ def read_block(pn532, block_number, key, uid):
     if block_data is None:
         print("Failed to read block", block_number)
         return None
+    
+    print(block_number, ':', ' '.join(['%02X' % x for x in block_data]))
 
     return block_data
 
@@ -119,8 +121,7 @@ while True:
         n_read = n_read + 1
         #read_block(pn532_1,4,key,uid_1)
         dump_blocks(pn532_1, uid_1)
-        
-        
+        break
 
     # Check for a card on the second PN532 (with a short timeout)
     uid_2 = pn532_2.read_passive_target(timeout=0.1)
