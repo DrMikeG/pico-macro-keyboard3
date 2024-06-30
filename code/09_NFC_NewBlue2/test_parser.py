@@ -1,7 +1,5 @@
 import unittest
-from ndef_parser import find_ndef_record_start, parse_ndef_record
-
-
+from ndef_parser import find_ndef_record_start, parse_ndef_record, has_text_ndef, get_text_ndef_string, parse_ndef_text_payload
 
 class TestParseUID(unittest.TestCase):
     """
@@ -57,3 +55,42 @@ class TestParseUID(unittest.TestCase):
         self.assertEqual(record["type"], b'T') # byte literal for 'T' character
         print(f"Payload: {record['payload']}")
         print(f"Payload (ASCII): {record['payload'].decode(errors='ignore')}")
+
+    def test_bytes_01_has_text_ndef(self):
+        bytes = self.int_array_to_bytes(self.test_bytes_01)
+        self.assertTrue(has_text_ndef(bytes))
+
+    def test_bytes_02_has_text_ndef(self):
+        bytes = self.int_array_to_bytes(self.test_bytes_02)
+        self.assertTrue(has_text_ndef(bytes))
+
+
+    def test_decode_payload(self):
+        payload = b'\x02enmike'
+        decoded = parse_ndef_text_payload(payload)
+        self.assertTrue(decoded['understood'])
+        
+    def test_get_raw_payload(self):
+        bytes = self.int_array_to_bytes(self.test_bytes_01)
+        foundStartingPosition = find_ndef_record_start(bytes)
+        record = parse_ndef_record(bytes[foundStartingPosition:])
+        self.assertEqual(record['payload'], b'\x02enmike')
+    
+    def test_bytes_01_get_text(self):
+        bytes = self.int_array_to_bytes(self.test_bytes_01)
+        foundStartingPosition = find_ndef_record_start(bytes)
+        record = parse_ndef_record(bytes[foundStartingPosition:])
+        #print(f"Payload: {record['payload']}")
+        self.assertEqual(record['payload'], b'\x02enmike')
+        decoded = parse_ndef_text_payload(record['payload'])
+        self.assertTrue(decoded['understood'])
+        decoded_text = decoded['text']
+        self.assertEqual(decoded_text,"mike")
+    
+    def test_bytes_01_in_get_text_ndef_string(self):
+        bytes = self.int_array_to_bytes(self.test_bytes_01)
+        self.assertEqual(get_text_ndef_string(bytes), "mike")
+    
+    def test_bytes_02_get_text(self):
+        bytes = self.int_array_to_bytes(self.test_bytes_02)
+        self.assertEqual(get_text_ndef_string(bytes), "mike")

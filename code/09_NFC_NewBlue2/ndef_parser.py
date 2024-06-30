@@ -49,6 +49,24 @@ The MB flag indicates if this is the start of an NDEF message.
 
 """
 def parse_ndef_record(bytes):
+    """
+    Parses the given NDEF record bytes and returns a dictionary containing the parsed information.
+
+    Args:
+        bytes (bytes): The NDEF record bytes to parse.
+
+    Returns:
+        dict: A dictionary containing the parsed information of the NDEF record.
+            - "tnf" (int): The Type Name Format (TNF) value.
+            - "type_length" (int): The length of the Type field.
+            - "payload_length" (int): The length of the Payload field.
+            - "id_length" (int): The length of the ID field.
+            - "type" (bytes): The Type field bytes.
+            - "id" (bytes): The ID field bytes.
+            - "payload" (bytes): The Payload field bytes.
+            - "sr_flag" (bool): Indicates if the Short Record (SR) flag is set.
+
+    """
     header = bytes[0]
     tnf = header & 0x07
     type_length = bytes[1]
@@ -108,3 +126,76 @@ def find_ndef_record_start(byteArray):
                 return i
         
     raise ValueError("NDEF record start not found")
+
+def has_text_ndef(byteArray):
+    try:
+        record_index = find_ndef_record_start(byteArray)
+        record = parse_ndef_record(byteArray[record_index:])
+        if record["tnf"] == 1:  # TNF is 1 - Well Known Type
+            if record["type_length"] == 1: # Type Length is 1
+                if record["type"] ==  b'T': # byte literal for 'T' character
+                    return True
+    except ValueError:
+        pass    
+    return False
+
+def parse_ndef_text_payload(payload):
+    try:
+        # Status byte
+        status_byte = payload[0]
+        
+        # Language code length is stored in the lower 6 bits of the status byte
+        language_code_length = status_byte & 0x3F
+        
+        # Language code
+        language_code = payload[1:1 + language_code_length].decode('utf-8')
+        
+        # Text encoding is indicated by the 7th bit of the status byte
+        utf16 = bool(status_byte & 0x80)
+        encoding = 'utf-16' if utf16 else 'utf-8'
+        
+        # Text starts after the language code
+        text = payload[1 + language_code_length:].decode(encoding)
+        
+        return {
+            'status_byte': status_byte,
+            'language_code_length': language_code_length,
+            'language_code': language_code,
+            'encoding': encoding,
+            'text': text,
+            'understood': True
+        }
+    except Exception as e:
+        # If any error occurs, return understood as False
+        return {
+            'status_byte': None,
+            'language_code_length': None,
+            'language_code': None,
+            'encoding': None,
+            'text': None,
+            'understood': False,
+            'error': str(e)
+        }
+
+def get_text_ndef_string(byteArray):
+    if has_text_ndef(byteArray) == False:
+        return None
+    
+    foundStartingPosition = find_ndef_record_start(byteArray)
+    record = parse_ndef_record(byteArray[foundStartingPosition:])
+    try:
+        """
+        Status Byte 0x02: UTF-8 encoding: 0 (second least significant bit is 0)
+        Language Code Length: 2 (remaining bits, which is 2 in this case)
+        Language Code en: Next 2 bytes: 0x65 0x6e ('en' for English)
+        Text mike:
+        Remaining bytes: 0x6d 0x69 0x6b 0x65 ('mike')
+        """
+        # Parse the text record payload
+        parsed_text_record = parse_ndef_text_payload(record["payload"])
+        if parsed_text_record['understood']:
+            return parsed_text_record['text']
+        
+    except ValueError:
+        pass    
+    return None

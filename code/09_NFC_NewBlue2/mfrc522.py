@@ -353,13 +353,16 @@ class MFRC522:
     def read_page(self, page_addr):
         """
         Read a single page of data from the card.
-        :param page_addr: Address of the page to read.
         
+        :param page_addr: Address of the page to read.
+        :type page_addr: int
+        :return: The data read from the page, or None if the read operation failed.
+        :rtype: list or None
         """
         data = [0x30, page_addr]
         data += self._crc(data)
         (status, back_data, back_len) = self._tocard(0x0C, data)   
-        print(f"Read page status: {status}, back_data: {back_data}, back_len: {back_len}")
+        #print(f"Read page status: {status}, back_data: {back_data}, back_len: {back_len}")
 
         # Read command on ultralight returns 16 bytes (4 pages)
         if status == self.OK and len(back_data) == 16:
