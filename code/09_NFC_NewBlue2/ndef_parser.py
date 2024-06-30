@@ -48,47 +48,63 @@ MB: Message Begin
 The MB flag indicates if this is the start of an NDEF message.               
 
 """
-def parse_byte_into_record_header(byte):
-    tnf = byte & 0x07  # TNF is the lower 3 bits
-    flags = byte >> 3  # Flags are the upper 5 bits
-    il = (flags & 0x01) > 0  # IL flag
-    sr = (flags & 0x02) > 0  # SR flag
-    me = (flags & 0x04) > 0  # ME flag
-    cf = (flags & 0x08) > 0  # CF flag
-    mb = (flags & 0x10) > 0  # MB flag
-    return {"tnf": tnf, "il": il, "sr": sr, "me": me, "cf": cf, "mb": mb}
-
-def parse_header_fields(header,byte_array):
-    index = 1
-    type_length = byte_array[index]
-    index += 1
-
-    if header["sr"]:
-        # If SR flag is set, payload length is 1 byte
-        payload_length = byte_array[index]
-        index += 1
-    else:
-        # If SR flag is not set, payload length could be more than 1 byte (not covered in this example)
-        payload_length = 0  # Placeholder for extended logic
-
-    if header["il"]:
-        # If IL flag is set, next byte is ID Length
-        id_length = byte_array[index]
-        index += 1
-    else:
-        id_length = 0
-
-    # Skip the Type and ID fields to reach the payload
-    index += type_length + id_length
-    return index, payload_length
-
-def extract_payload(byte_array):
+def parse_ndef_record(bytes):
+    header = bytes[0]
+    tnf = header & 0x07
+    type_length = bytes[1]
     
-    header = parse_byte_into_record_header(byte_array[0])
+    index = 2
+    sr_flag = header & 0x10 > 0x00
+    if sr_flag:  # Short Record (SR flag is set)
+        payload_length = bytes[index]
+        index += 1
+        id_length = 0
+    else:  # Normal Record (SR flag is not set)
+        payload_length = (bytes[index] << 24) | (bytes[index+1] << 16) | (bytes[index+2] << 8) | bytes[index+3]
+        index += 4
+        id_length = bytes[index] if header & 0x08 else 0
+        index += 1 if header & 0x08 else 0
+    
+    type_ = bytes[index:index + type_length]
+    index += type_length
 
-    # Calculate the start index of the Type Length field, which is right after the header
-    index, payload_length = parse_header_fields(header,byte_array)
+    if id_length > 0:
+        id_ = bytes[index:index + id_length]
+        index += id_length
+    else:
+        id_ = b''
 
-    # Extract the payload
-    payload = byte_array[index:index+payload_length]
-    return payload
+    payload = bytes[index:index + payload_length]
+
+    return {
+        "tnf": tnf,
+        "type_length": type_length,
+        "payload_length": payload_length,
+        "id_length": id_length,
+        "type": type_,
+        "id": id_,
+        "payload": payload,
+        "sr_flag": sr_flag
+    }
+
+"""
+Given the variability in memory layouts, it is common practice to search for the start of the NDEF message rather than assuming it starts at the very beginning. 
+The NDEF message is usually identified by looking for specific header bytes that conform to the NDEF record format.
+
+The NDEF record header typically starts with a byte where:
+- the TNF (Type Name Format) is between 0x00 and 0x07
+- the MB (Message Begin) flag is set (which is the first bit in the byte).
+
+I am only supporting TNF 1 for now.
+
+"""
+def find_ndef_record_start(byteArray):
+    
+    for i in range(len(byteArray)):
+        # TNF should be 0x01 and MB should be set
+        if byteArray[i] & 0x07 == 0x01 and (byteArray[i] & 0x80):
+            type_length = byteArray[i + 1]
+            if type_length <= 255:  # Ensure type length is reasonable
+                return i
+        
+    raise ValueError("NDEF record start not found")
