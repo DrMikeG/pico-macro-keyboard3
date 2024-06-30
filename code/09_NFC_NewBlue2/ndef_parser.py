@@ -113,14 +113,16 @@ The NDEF record header typically starts with a byte where:
 - the TNF (Type Name Format) is between 0x00 and 0x07
 - the MB (Message Begin) flag is set (which is the first bit in the byte).
 
-I am only supporting TNF 1 for now.
+What is TNF 0x00? Empty Record
+I am only supporting TNF 1-7 for now.
 
 """
 def find_ndef_record_start(byteArray):
     
     for i in range(len(byteArray)):
         # TNF should be 0x01 and MB should be set
-        if byteArray[i] & 0x07 == 0x01 and (byteArray[i] & 0x80):
+        # I want to change byteArray[i] & 0x07 so that it is between 1 and 7
+        if byteArray[i] & 0x07 > 0x00 and byteArray[i] & 0x07 < 0x08 and (byteArray[i] & 0x80):
             type_length = byteArray[i + 1]
             if type_length <= 255:  # Ensure type length is reasonable
                 return i

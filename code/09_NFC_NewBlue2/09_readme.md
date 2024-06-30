@@ -147,3 +147,22 @@ In summary, the [68, 0] response indicates a tag type and capabilities, pointing
 
 Ok - so rings are tag type 0x44 and fobs are 0x04 - first byte returned by request()
 
+
+
+Ok, so I've figured out how to get the bytes out of the pages on the rings.
+
+I've written and unit tested a parser class for ndef records - although I've only tried it with Short Record (SR) form of the NDEF.
+
+We have to search within the page bytes for the  NDEF record header, which typically starts with a byte where:
+- the TNF (Type Name Format) is between 0x00 and 0x07
+- the MB (Message Begin) flag is set (which is the first bit in the byte).
+I am only supporting TNF 1-7 for now as 0 - Empty Record which isn't useful and makes it much harder to spot the correct starting point.
+
+Then once I've identified I have a text NDEF record with a short record and simple payload length of less than 255bytes (has to be to fit on a ring)
+
+I can parse the payload, which includes:
+Status Byte 0x02: UTF-8 encoding: 0 (second least significant bit is 0)
+Language Code Length: 2 (remaining bits, which is 2 in this case)
+Language Code en: Next 2 bytes: 0x65 0x6e ('en' for English)
+Text mike:
+
